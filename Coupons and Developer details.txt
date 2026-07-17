@@ -1,0 +1,14 @@
+//***Coupon Code***\\
+
+WELCOME10	-	10% discount
+AGS	-	15% discount
+CITY53	-	20% discount
+RS45	-	40% discount
+
+
+
+
+||||Developer details||||
+email: abhinavgiri370@gmail.com
+password: city53
+username: abhinavgiri45

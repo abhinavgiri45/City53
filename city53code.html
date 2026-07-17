@@ -1,0 +1,188 @@
+import pygame
+import random
+import sys
+
+# Initialize Pygame
+pygame.init()
+
+# --- Game Constants ---
+WIDTH = 800
+HEIGHT = 600
+FPS = 60
+
+# --- Colors ---
+BG_COLOR = (20, 25, 35)         # Dark night sky
+SPIDEY_RED = (226, 54, 54)
+SPIDEY_BLUE = (34, 68, 200)
+WEB_WHITE = (240, 240, 240)
+PUMPKIN_ORANGE = (255, 140, 0)
+GOBLIN_GREEN = (50, 200, 50)
+TEXT_WHITE = (255, 255, 255)
+
+# --- Setup Display ---
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Spider-Man: Web Defender")
+clock = pygame.time.Clock()
+font = pygame.font.SysFont("Arial", 24, bold=True)
+
+class Player:
+    def __init__(self):
+        self.width = 50
+        self.height = 50
+        self.x = WIDTH // 2 - self.width // 2
+        self.y = HEIGHT - self.height - 20
+        self.speed = 8
+        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+
+    def move(self, keys):
+        if keys[pygame.K_LEFT] and self.x > 0:
+            self.x -= self.speed
+        if keys[pygame.K_RIGHT] and self.x < WIDTH - self.width:
+            self.x += self.speed
+        self.rect.x = self.x
+
+    def draw(self, surface):
+        # Draw Spidey (Red base with Blue center to mimic the suit)
+        pygame.draw.rect(surface, SPIDEY_RED, self.rect)
+        pygame.draw.rect(surface, SPIDEY_BLUE, (self.x + 10, self.y + 10, 30, 30))
+        # Eyes
+        pygame.draw.polygon(surface, WEB_WHITE, [(self.x + 10, self.y + 15), (self.x + 20, self.y + 10), (self.x + 20, self.y + 20)])
+        pygame.draw.polygon(surface, WEB_WHITE, [(self.x + 40, self.y + 15), (self.x + 30, self.y + 10), (self.x + 30, self.y + 20)])
+
+class Web:
+    def __init__(self, x, y):
+        self.width = 4
+        self.height = 20
+        self.x = x
+        self.y = y
+        self.speed = 12
+        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+
+    def update(self):
+        self.y -= self.speed
+        self.rect.y = self.y
+
+    def draw(self, surface):
+        pygame.draw.rect(surface, WEB_WHITE, self.rect)
+
+class Bomb:
+    def __init__(self):
+        self.width = 40
+        self.height = 40
+        self.x = random.randint(0, WIDTH - self.width)
+        self.y = -self.height
+        self.speed = random.randint(3, 7)
+        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+
+    def update(self):
+        self.y += self.speed
+        self.rect.y = self.y
+
+    def draw(self, surface):
+        # Draw Goblin's Pumpkin Bomb
+        pygame.draw.circle(surface, PUMPKIN_ORANGE, (self.x + 20, self.y + 20), 20)
+        pygame.draw.rect(surface, GOBLIN_GREEN, (self.x + 15, self.y - 5, 10, 10))
+
+def main():
+    player = Player()
+    webs = []
+    bombs = []
+    
+    score = 0
+    missed = 0
+    max_misses = 5
+    game_over = False
+
+    # Timers
+    bomb_spawn_timer = 0
+    bomb_spawn_rate = 60 # Spawns a bomb every 60 frames (1 second)
+
+    while True:
+        # 1. Event Handling
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE and not game_over:
+                    # Shoot a web from the center of the player
+                    webs.append(Web(player.x + player.width // 2 - 2, player.y))
+                if event.key == pygame.K_r and game_over:
+                    # Restart game
+                    main()
+
+        if not game_over:
+            # 2. Update Game State
+            keys = pygame.key.get_pressed()
+            player.move(keys)
+
+            # Update Webs
+            for web in webs[:]:
+                web.update()
+                if web.y < 0:
+                    webs.remove(web)
+
+            # Spawn Bombs
+            bomb_spawn_timer += 1
+            if bomb_spawn_timer >= bomb_spawn_rate:
+                bombs.append(Bomb())
+                bomb_spawn_timer = 0
+                # Make game harder over time
+                if bomb_spawn_rate > 20:
+                    bomb_spawn_rate -= 1 
+
+            # Update Bombs & Check Collisions
+            for bomb in bombs[:]:
+                bomb.update()
+                
+                # Check if bomb hit the ground
+                if bomb.y > HEIGHT:
+                    bombs.remove(bomb)
+                    missed += 1
+                    if missed >= max_misses:
+                        game_over = True
+                    continue
+
+                # Check if web hits bomb
+                for web in webs[:]:
+                    if bomb.rect.colliderect(web.rect):
+                        score += 10
+                        if bomb in bombs:
+                            bombs.remove(bomb)
+                        if web in webs:
+                            webs.remove(web)
+                        break
+
+        # 3. Draw Everything
+        screen.fill(BG_COLOR)
+
+        if not game_over:
+            player.draw(screen)
+            for web in webs:
+                web.draw(screen)
+            for bomb in bombs:
+                bomb.draw(screen)
+
+            # Draw HUD
+            score_text = font.render(f"Score: {score}", True, TEXT_WHITE)
+            missed_text = font.render(f"City Damage: {missed}/{max_misses}", True, SPIDEY_RED)
+            screen.blit(score_text, (10, 10))
+            screen.blit(missed_text, (WIDTH - missed_text.get_width() - 10, 10))
+            
+        else:
+            # Game Over Screen
+            go_text = font.render("GAME OVER - THE CITY FELL", True, SPIDEY_RED)
+            score_text = font.render(f"Final Score: {score}", True, TEXT_WHITE)
+            restart_text = font.render("Press 'R' to Restart", True, SPIDEY_BLUE)
+            
+            screen.blit(go_text, (WIDTH//2 - go_text.get_width()//2, HEIGHT//2 - 50))
+            screen.blit(score_text, (WIDTH//2 - score_text.get_width()//2, HEIGHT//2))
+            screen.blit(restart_text, (WIDTH//2 - restart_text.get_width()//2, HEIGHT//2 + 50))
+
+        # Update Display
+        pygame.display.flip()
+        clock.tick(FPS)
+
+if __name__ == "__main__":
+    main()
